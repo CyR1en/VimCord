@@ -4,6 +4,11 @@ VimCord is a BetterDiscord plugin that brings Vim-style navigation and link hint
 
 Note: Visual mode is a work in progress.
 
+<p align="center">
+    <img src="media/image.png" width="426" height="240" alt="No hints"/>
+    <img src="media/image(hints).png" width="426" height="240" alt="With Hints"/>
+</p>
+
 ## Features
 
 - Normal, Insert, and Hint modes with a subtle mode indicator in the user area
