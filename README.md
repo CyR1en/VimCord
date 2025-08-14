@@ -2,7 +2,7 @@
 
 VimCord is a BetterDiscord plugin that brings Vim-style navigation and link hinting to Discord. Move around with hjkl, focus panes, and click anything using keyboard-driven hint labels.
 
-Note: Visual mode is a work in progress.
+Note: This plugin is very much a work in progress. Visual mode will be implemented in the future.
 
 <p align="center">
     <img src="media/image.png" width="426" height="240" alt="No hints"/>
