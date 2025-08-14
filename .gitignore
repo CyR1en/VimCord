@@ -1,0 +1,80 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Diagnostic reports
+report.*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage
+.nyc_output
+
+# Build output
+dist
+build
+out
+.tmp
+.temp
+.cache
+.cache-loader
+
+# Dependencies
+node_modules/
+jspm_packages/
+
+# TypeScript
+*.tsbuildinfo
+
+# npm cache
+.npm
+
+# Linters
+.eslintcache
+.stylelintcache
+
+# Bundlers and tooling caches
+.rollup.cache
+.rpt2_cache
+.parcel-cache
+.fusebox
+.next
+.nuxt
+.svelte-kit
+
+# Storybook (if ever used)
+.out
+.storybook-out
+
+# IDE/editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Maps and misc
+*.map
