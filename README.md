@@ -97,7 +97,6 @@ Available hooks and variables:
 
 - No hints appear: Ensure the target is visible and not covered by other UI. The plugin filters out hidden or out-of-viewport elements.
 - Clicking doesn’t work: Some overlays intercept clicks. VimCord tries multiple fallback strategies; report elements that remain problematic.
-- Multiple indicators stacked: This should be fixed; if you still see it, try toggling the plugin off and on.
 
 ## Roadmap
 
