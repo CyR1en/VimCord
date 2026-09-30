@@ -92,7 +92,11 @@ Available hooks and variables:
     - Backspace: remove the last character
     - Enter: accept if exact or only one match
     - Stop typing briefly: auto-accept when unambiguous
+ 
+**Note:**
 
+
+You can edit keybinds under **User Settings->BetterDiscord->Plugins->VimCord**
 ## Troubleshooting
 
 - No hints appear: Ensure the target is visible and not covered by other UI. The plugin filters out hidden or out-of-viewport elements.
@@ -101,7 +105,6 @@ Available hooks and variables:
 ## Roadmap
 
 - Visual mode (in progress)
-- Keymap customization
 - Per-scope hint alphabets and configurable timeout
 - Non-QWERTY layout improvements
 
