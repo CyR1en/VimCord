@@ -109,6 +109,221 @@ const isChannelComposer = (el) => {
     return false;
 };
 
+/* -------------------- Settings -------------------- */
+const DEFAULT_SETTINGS = { scrollAmount: 80 };
+let settings = { ...DEFAULT_SETTINGS };
+
+const loadSettings = () => {
+    try {
+        const saved = BdApi.Data.load(PLUGIN_NAME, "settings");
+        if (saved && typeof saved === "object") settings = { ...DEFAULT_SETTINGS, ...saved };
+    } catch (err) {
+        console.error("[VimCord] Failed to load settings", err);
+    }
+};
+
+const saveSettings = () => {
+    try { BdApi.Data.save(PLUGIN_NAME, "settings", settings); }
+    catch (err) { console.error("[VimCord] Failed to save settings", err); }
+};
+
+/* -------------------- KEYBINDS -------------------- */
+const PLUGIN_NAME = "VimCord";
+
+const DEFAULT_KEYBINDS = {
+    hint: "f",
+    paneLeft: "h",
+    paneRight: "l",
+    scrollDown: "j",
+    scrollUp: "k",
+    halfPageDown: "d",
+    halfPageUp: "u",
+    visualCaret: "v",
+    insert: "i"
+};
+
+const KEYBIND_LABELS = {
+    hint: "Hint mode (click elements)",
+    paneLeft: "Focus pane to the left",
+    paneRight: "Focus pane to the right",
+    scrollDown: "Scroll down",
+    scrollUp: "Scroll up",
+    halfPageDown: "Half page down",
+    halfPageUp: "Half page up",
+    visualCaret: "Visual caret mode",
+    insert: "Insert mode (focus input)"
+};
+
+let keybinds = { ...DEFAULT_KEYBINDS };
+
+const loadKeybinds = () => {
+    try {
+        const saved = BdApi.Data.load(PLUGIN_NAME, "keybinds");
+        if (saved && typeof saved === "object") keybinds = { ...DEFAULT_KEYBINDS, ...saved };
+    } catch (err) {
+        console.error("[VimCord] Failed to load keybinds", err);
+    }
+};
+
+const saveKeybinds = () => {
+    try { BdApi.Data.save(PLUGIN_NAME, "keybinds", keybinds); }
+    catch (err) { console.error("[VimCord] Failed to save keybinds", err); }
+};
+
+const buildSettingsPanel = () => {
+    
+    const panel = document.createElement("div");
+    panel.style.cssText = "padding:16px;color:var(--header-primary);";
+
+    const headerStyle = "margin-bottom:14px;font-size:20px;font-weight:700;color:var(--header-primary);";
+
+    // Preferences
+    const preferencesHeader = document.createElement("div");
+    preferencesHeader.textContent = "Preferences"
+    preferencesHeader.style.cssText = headerStyle
+    panel.appendChild(preferencesHeader)
+
+    const scrollRow = document.createElement("div");
+    scrollRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--background-modifier-accent);margin-bottom:8px;";
+
+    const scrollLabel = document.createElement("span");
+    scrollLabel.textContent = "Scroll amount (pixels)";
+
+    const scrollInput = document.createElement("input");
+    scrollInput.type = "number";
+    scrollInput.min = "10";
+    scrollInput.max = "1000";
+    scrollInput.step = "1";
+    scrollInput.value = settings.scrollAmount;
+    scrollInput.setAttribute("data-vimcord-input", "true");
+    scrollInput.style.cssText = "width:90px;padding:4px 8px;border-radius:4px;border:1px solid var(--background-modifier-accent);background:var(--background-secondary);color:var(--header-primary);";
+    scrollInput.addEventListener("change", () => {
+        const raw = Math.round(Number(scrollInput.value));
+        const clamped = Number.isFinite(raw) ? Math.min(1000, Math.max(10, raw)) : settings.scrollAmount;
+        settings.scrollAmount = clamped;
+        scrollInput.value = clamped;
+        saveSettings();
+    });
+
+    scrollRow.appendChild(scrollLabel);
+    scrollRow.appendChild(scrollInput);
+    panel.appendChild(scrollRow);
+
+    // Keybinds
+    const keybindsHeader = document.createElement("div");
+    keybindsHeader.textContent = "Keybinds"
+    keybindsHeader.style.cssText = headerStyle
+    panel.appendChild(keybindsHeader)
+
+    const intro = document.createElement("div");
+    intro.textContent = "Click a key to rebind it, then press the new key. Esc cancels.";
+    intro.style.cssText = "margin-bottom:12px;color:var(--header-secondary);";
+    panel.appendChild(intro);
+
+    const status = document.createElement("div");
+    status.style.cssText = "min-height:18px;margin-bottom:8px;color:var(--text-danger, #ed4245);font-size:13px;";
+
+    const buttons = {};
+    let cancelCapture = null;
+
+    const keyText = (k) => (k === " " ? "Space" : k);
+    const render = () => {
+        for (const action of Object.keys(DEFAULT_KEYBINDS)) {
+            buttons[action].textContent = keyText(keybinds[action]);
+        }
+    };
+
+    const beginCapture = (action) => {
+        if (cancelCapture) cancelCapture();
+        status.textContent = "";
+        buttons[action].textContent = "Press a key…";
+
+        const handler = (e) => {
+            if (["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) return;
+
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            finish();
+
+            if (e.key === "Escape") return;
+            if (e.ctrlKey || e.metaKey || e.altKey) {
+                status.textContent = "Modifier combos aren't supported.";
+                return;
+            }
+            if (e.key.length !== 1) {
+                status.textContent = "Only single-character keys can be bound.";
+                return;
+            }
+            const conflict = Object.keys(keybinds).find(a => a !== action && keybinds[a] === e.key);
+            if (conflict) {
+                status.textContent = `"${keyText(e.key)}" is already used for: ${KEYBIND_LABELS[conflict]}.`;
+                return;
+            }
+
+            keybinds[action] = e.key;
+            saveKeybinds();
+            render();
+        };
+
+        const finish = () => {
+            window.removeEventListener("keydown", handler, true);
+            cancelCapture = null;
+            render();
+        };
+
+        cancelCapture = finish;
+        window.addEventListener("keydown", handler, true);
+    };
+
+    for (const action of Object.keys(DEFAULT_KEYBINDS)) {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--background-modifier-accent);";
+
+        const label = document.createElement("span");
+        label.textContent = KEYBIND_LABELS[action];
+
+        const btn = document.createElement("button");
+        btn.style.cssText = "min-width:90px;padding:4px 10px;border-radius:4px;border:1px solid var(--background-modifier-accent);background:var(--background-secondary);color:var(--header-primary);font-weight:600;cursor:pointer;";
+        btn.addEventListener("click", () => beginCapture(action));
+        buttons[action] = btn;
+
+        row.appendChild(label);
+        row.appendChild(btn);
+        panel.appendChild(row);
+    }
+
+    const reset = document.createElement("button");
+    reset.textContent = "Reset to defaults";
+    reset.style.cssText = "margin-top:14px;padding:6px 12px;border-radius:4px;border:none;background:var(--button-secondary-background, #4e5058);color:#fff;cursor:pointer;";
+    reset.addEventListener("click", () => {
+        if (cancelCapture) cancelCapture();
+
+        BdApi.UI.showConfirmationModal(
+            "Reset to defaults?",
+            "This will restore all keybinds and preferences to their default values.",
+            {
+                confirmText: "Reset",
+                cancelText: "Cancel",
+                danger: true,
+                onConfirm: () => {
+                    keybinds = { ...DEFAULT_KEYBINDS };
+                    settings = { ...DEFAULT_SETTINGS };
+                    saveKeybinds();
+                    saveSettings();
+                    scrollInput.value = settings.scrollAmount;
+                    status.textContent = "";
+                    render();
+                }
+            }
+        );
+    });
+
+    panel.appendChild(status);
+    panel.appendChild(reset);
+    render();
+    return panel;
+};
+
 /* -------------------- STATE -------------------- */
 let currentMode = "normal";
 let keyListener = null;
@@ -413,22 +628,25 @@ const initMode = (mode) => {
 /* -------------------- MODE HANDLERS -------------------- */
 const normalModeHandler = (e) => {
     switch (e.key) {
-        case "f": setMode("hint"); break;
-        case "h": moveActivePane("left"); break;
-        case "l": moveActivePane("right"); break;
-        case "j": scrollActivePane(80); break;
-        case "k": scrollActivePane(-80); break;
-        case "d":
-        case "D": scrollActivePane(window.innerHeight / 2); break;
-        case "u":
-        case "U": scrollActivePane(-window.innerHeight / 2); break;
-        case "v": setMode("visual-caret"); break;
-        case "i":
+        case keybinds.hint: setMode("hint"); break;
+        case keybinds.paneLeft: moveActivePane("left"); break;
+        case keybinds.paneRight: moveActivePane("right"); break;
+        case keybinds.scrollDown: scrollActivePane(settings.scrollAmount); break;
+        case keybinds.scrollUp: scrollActivePane(-settings.scrollAmount); break;
+        case keybinds.visualCaret: setMode("visual-caret"); break;
+        case keybinds.insert: {
             setMode("insert");
-        {
             const input = findKnownInputs()[0];
             if (input) { try { input.focus(); } catch {} }
+            break;
         }
+        case keybinds.halfPageDown:
+        case keybinds.halfPageDown.toUpperCase():
+            scrollActivePane(window.innerHeight / 2);
+            break;
+        case keybinds.halfPageUp:
+        case keybinds.halfPageUp.toUpperCase():
+            scrollActivePane(-window.innerHeight / 2);
             break;
     }
 };
@@ -450,6 +668,7 @@ const hintModeHandler = (e) => handleHintKey(e);
 
 /* -------------------- KEY DISPATCH -------------------- */
 const keyDispatch = (e) => {
+    if (e.target?.closest?.("[data-vimcord-input]")) return;
     if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
     if (currentMode !== "insert") { e.preventDefault(); e.stopImmediatePropagation(); }
     if (currentMode === "normal") normalModeHandler(e);
@@ -1028,6 +1247,8 @@ const disconnectInputFocusObserver = () => {
 
 /* -------------------- LIFECYCLE -------------------- */
 const start = () => {
+    loadKeybinds();
+    loadSettings();
     injectDefaultStyles();
     keyListener = (e) => keyDispatch(e);
     document.addEventListener("keydown", keyListener, { capture: true });
@@ -1067,4 +1288,5 @@ const stop = () => {
 function VimPlugin() {}
 VimPlugin.prototype.start = start;
 VimPlugin.prototype.stop = stop;
+VimPlugin.prototype.getSettingsPanel = buildSettingsPanel;
 module.exports = VimPlugin;
