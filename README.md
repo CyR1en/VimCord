@@ -22,6 +22,8 @@ Only the generated `VimCord.plugin.js` is needed to install. Node.js and the sou
 
 ## Use
 
+These are the default bindings. Normal-mode actions can be remapped in settings.
+
 | Mode   | Key         | Action                                                   |
 | ------ | ----------- | -------------------------------------------------------- |
 | Normal | `h` / `l`   | Select the previous / next pane                          |
@@ -35,7 +37,7 @@ Only the generated `VimCord.plugin.js` is needed to install. Node.js and the sou
 | Hint   | `Enter`     | Activate the sole remaining match                        |
 | Hint   | `Escape`    | Cancel hints                                             |
 
-The indicator shows the current mode and selected pane. Clicking or tabbing into an editable input enters Insert mode. An editor already focused when the plugin starts stays usable. Modifier shortcuts and IME composition pass through to Discord.
+The indicator shows the current mode and selected pane. Clicking or tabbing into an editable input enters Insert mode. An editor already focused when the plugin starts stays usable. Ctrl, Alt, and Meta shortcuts and IME composition pass through to Discord.
 
 When the member sidebar is open, `l` from Channel selects Member List; `h` returns to Channel. Closing the selected member list returns pane selection to Channel.
 
@@ -45,7 +47,18 @@ Labels also avoid visual collisions. Crowded labels move to nearby free space, w
 
 Scrolling is immediate, including held `j` / `k` keys. `i` prefers an editor in the foreground dialog, then the channel composer. Native Discord controls are activated once, without temporarily disabling overlays or replaying a chain of simulated clicks.
 
-Visual mode is not implemented, and `v` has no VimCord binding.
+Visual mode is not implemented, and `v` has no default VimCord binding.
+
+## Settings
+
+Open **User Settings → BetterDiscord → Plugins → VimCord settings**. Changes take effect immediately and are saved for the next session.
+
+- Adjust the scroll amount from **10 to 1,000 pixels** for each scroll up/down action. Half-page scrolling still uses the selected pane's height.
+- Remap pane selection, scrolling, half-page scrolling, hints, and Insert mode. Select a binding, then press a single character or Space. Shift characters are supported; Ctrl, Alt, and Meta combinations are not. Escape or Tab cancels key capture.
+- Assign each action its own key. Half-page bindings also accept their uppercase letter, and conflicting bindings are rejected for both forms.
+- Use **Reset to defaults** to restore the original keybindings and scroll amount.
+
+The hint alphabet and mode controls, including Escape, Enter, and Backspace, remain fixed. There is no Visual mode setting.
 
 ## Customize appearance
 
@@ -85,6 +98,9 @@ src/
   hints.js       Candidate measurement, labels and hint session cleanup
   hint-layout.js Collision placement using a spatial grid
   indicator.js   Mode indicator
+  settings.js    Settings defaults, validation and persistence
+  settings-panel.js Settings controls and key capture
+  settings.css   Settings panel appearance
   styles.css     Default appearance
 scripts/
   build.mjs      Single-file bundle and metadata
@@ -101,7 +117,8 @@ npm run lint          # Check JavaScript for mistakes and readability
 npm run lint:fix      # Apply available ESLint fixes
 npm run format        # Format maintained source and documentation
 npm run format:check  # Check formatting without changing files
-npm run check         # Lint, check formatting, build, and check bundle syntax
+npm test              # Run settings validation and DOM interaction tests
+npm run check         # Lint, check formatting, build, check bundle syntax, and test
 ```
 
 ESLint enforces coding rules, and Prettier handles formatting. See [CONTRIBUTING.md](CONTRIBUTING.md) for the project style guide. The generated bundle is excluded from both tools.
@@ -127,5 +144,10 @@ Use ordinary navigation controls and an empty editor; no test messages need to b
 3. Open hints, narrow a two-letter label, backspace, select a control, and cancel with Escape or scrolling.
 4. Enter Insert mode, type a temporary draft, remove it, and Escape. Check clicks, Tab, shortcuts, and IME input.
 5. Repeat in a dialog or settings page. Check that covered background controls are not activated.
+6. Change a keybinding and scroll amount in VimCord settings. Confirm the changes work immediately and persist after re-enabling the plugin. Cancel key capture with Escape and Tab, then reset to defaults.
 
-`npm run check` checks lint rules, formatting, packaging, and syntax; it does not test Discord integration. Discord can change its DOM, so live checks are still needed when updating selectors. Unsupported custom controls should get a narrow, verified compatibility fix rather than global click retries.
+`npm run check` checks lint rules, formatting, packaging, and syntax, then runs settings validation and DOM interaction tests using jsdom. These tests do not cover full Discord integration. Discord can change its DOM, so live checks are still needed when updating selectors. Unsupported custom controls should get a narrow, verified compatibility fix rather than global click retries.
+
+## Credits
+
+Thanks to [@moistgreen](https://github.com/moistgreen) for the original settings and keybindings contribution in [PR #1](https://github.com/CyR1en/VimCord/pull/1).

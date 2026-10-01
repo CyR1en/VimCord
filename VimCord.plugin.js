@@ -813,11 +813,354 @@ var PaneManager = class {
   }
 };
 
+// src/settings.js
+var PLUGIN_NAME = "VimCord";
+var DEFAULT_SCROLL_AMOUNT = 80;
+var DEFAULT_KEYBINDS = Object.freeze({
+  hint: "f",
+  paneLeft: "h",
+  paneRight: "l",
+  scrollDown: "j",
+  scrollUp: "k",
+  halfPageDown: "d",
+  halfPageUp: "u",
+  insert: "i"
+});
+var KEYBIND_LABELS = Object.freeze({
+  hint: "Hint mode (click elements)",
+  paneLeft: "Focus pane to the left",
+  paneRight: "Focus pane to the right",
+  scrollDown: "Scroll down",
+  scrollUp: "Scroll up",
+  halfPageDown: "Half page down",
+  halfPageUp: "Half page up",
+  insert: "Insert mode (focus input)"
+});
+var ACTIONS = Object.keys(DEFAULT_KEYBINDS);
+var HALF_PAGE_ACTIONS = /* @__PURE__ */ new Set(["halfPageDown", "halfPageUp"]);
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function isBindableKey(key) {
+  return typeof key === "string" && /^[\p{L}\p{N}\p{P}\p{S} ]$/u.test(key);
+}
+function effectiveKeys(action, key) {
+  const keys = [key];
+  const uppercase = key.toUpperCase();
+  if (HALF_PAGE_ACTIONS.has(action) && uppercase !== key && isBindableKey(uppercase)) {
+    keys.push(uppercase);
+  }
+  return keys;
+}
+function findConflict(keybinds) {
+  const assigned = /* @__PURE__ */ new Map();
+  for (const action of ACTIONS) {
+    for (const key of effectiveKeys(action, keybinds[action])) {
+      if (assigned.has(key)) {
+        return { key, first: assigned.get(key), second: action };
+      }
+      assigned.set(key, action);
+    }
+  }
+  return null;
+}
+function normalizeScrollAmount(raw) {
+  if (typeof raw !== "number" && typeof raw !== "string" || typeof raw === "string" && !raw.trim()) {
+    throw new Error("Enter a number of pixels between 10 and 1000.");
+  }
+  const amount = Number(raw);
+  if (!Number.isFinite(amount)) {
+    throw new Error("Enter a number of pixels between 10 and 1000.");
+  }
+  return Math.min(1e3, Math.max(10, Math.round(amount)));
+}
+function normalizeKeybinds(saved) {
+  const keybinds = { ...DEFAULT_KEYBINDS };
+  if (isRecord(saved)) {
+    for (const action of ACTIONS) {
+      if (Object.hasOwn(saved, action) && isBindableKey(saved[action])) {
+        keybinds[action] = saved[action];
+      }
+    }
+  }
+  if (findConflict(keybinds)) {
+    return DEFAULT_KEYBINDS;
+  }
+  return Object.freeze(keybinds);
+}
+var PluginSettings = class {
+  constructor(storage = BdApi.Data) {
+    this.storage = storage;
+    const saved = this.load("settings");
+    const savedKeybinds = isRecord(saved) && Object.hasOwn(saved, "keybinds") ? saved.keybinds : this.load("keybinds");
+    let scrollAmount = DEFAULT_SCROLL_AMOUNT;
+    if (isRecord(saved) && Object.hasOwn(saved, "scrollAmount")) {
+      try {
+        scrollAmount = normalizeScrollAmount(saved.scrollAmount);
+      } catch {
+        scrollAmount = DEFAULT_SCROLL_AMOUNT;
+      }
+    }
+    this.current = { scrollAmount, keybinds: normalizeKeybinds(savedKeybinds) };
+  }
+  get scrollAmount() {
+    return this.current.scrollAmount;
+  }
+  get keybinds() {
+    return this.current.keybinds;
+  }
+  load(key) {
+    try {
+      return this.storage.load(PLUGIN_NAME, key);
+    } catch (error) {
+      console.error(`[VimCord] Failed to load ${key}`, error);
+      return void 0;
+    }
+  }
+  save(next) {
+    try {
+      this.storage.save(PLUGIN_NAME, "settings", {
+        scrollAmount: next.scrollAmount,
+        keybinds: { ...next.keybinds }
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to save VimCord settings: ${reason}`, { cause: error });
+    }
+    this.current = next;
+  }
+  actionForKey(key) {
+    return ACTIONS.find((action) => effectiveKeys(action, this.keybinds[action]).includes(key));
+  }
+  setScrollAmount(raw) {
+    const scrollAmount = normalizeScrollAmount(raw);
+    this.save({ scrollAmount, keybinds: this.keybinds });
+    return scrollAmount;
+  }
+  setKeybind(action, key) {
+    if (!Object.hasOwn(DEFAULT_KEYBINDS, action)) {
+      throw new Error("Unknown VimCord action.");
+    }
+    if (!isBindableKey(key)) {
+      throw new Error("Use one visible character or Space for a keybind.");
+    }
+    const keybinds = { ...this.keybinds, [action]: key };
+    const conflict = findConflict(keybinds);
+    if (conflict) {
+      const otherAction = conflict.first === action ? conflict.second : conflict.first;
+      const displayKey = conflict.key === " " ? "Space" : conflict.key;
+      throw new Error(`"${displayKey}" is already used for: ${KEYBIND_LABELS[otherAction]}.`);
+    }
+    this.save({ scrollAmount: this.scrollAmount, keybinds: Object.freeze(keybinds) });
+  }
+  reset() {
+    this.save({ scrollAmount: DEFAULT_SCROLL_AMOUNT, keybinds: DEFAULT_KEYBINDS });
+  }
+};
+
+// src/settings.css
+var settings_default = ".vimcord-settings {\n    padding: 16px;\n    color: var(--header-primary, #f2f3f5);\n    font-size: 14px;\n    line-height: 1.5;\n}\n\n.vimcord-settings .vimcord-settings-heading {\n    margin: 20px 0 12px;\n    color: var(--header-primary, #f2f3f5);\n    font-size: 20px;\n    font-weight: 700;\n}\n\n.vimcord-settings .vimcord-settings-heading:first-of-type {\n    margin-top: 0;\n}\n\n.vimcord-settings-description {\n    margin: 0 0 12px;\n    color: var(--header-secondary, #b5bac1);\n}\n\n.vimcord-settings-row {\n    display: flex;\n    flex-wrap: wrap;\n    align-items: center;\n    justify-content: space-between;\n    gap: 8px 16px;\n    padding: 10px 0;\n    border-bottom: 1px solid var(--background-modifier-accent, #4e5058);\n}\n\n.vimcord-settings-input,\n.vimcord-settings-key {\n    box-sizing: border-box;\n    min-height: 34px;\n    padding: 5px 10px;\n    border: 1px solid var(--background-modifier-accent, #4e5058);\n    border-radius: 4px;\n    background: var(--background-secondary, #2b2d31);\n    color: var(--header-primary, #f2f3f5);\n    font: inherit;\n}\n\n.vimcord-settings-input {\n    width: 100px;\n    max-width: 100%;\n}\n\n.vimcord-settings-key {\n    min-width: 100px;\n    font-weight: 600;\n    cursor: pointer;\n}\n\n.vimcord-settings-key:hover,\n.vimcord-settings-key.is-capturing {\n    background: var(--background-modifier-hover, #404249);\n}\n\n.vimcord-settings-input:focus-visible,\n.vimcord-settings-key:focus-visible,\n.vimcord-settings-reset:focus-visible {\n    outline: 2px solid var(--text-link, #00a8fc);\n    outline-offset: 2px;\n}\n\n.vimcord-settings-status {\n    min-height: 20px;\n    margin: 12px 0;\n    color: var(--header-secondary, #b5bac1);\n    font-size: 13px;\n}\n\n.vimcord-settings-status.is-error {\n    color: var(--text-danger, #fa777c);\n}\n\n.vimcord-settings-reset {\n    min-height: 34px;\n    padding: 6px 12px;\n    border: 0;\n    border-radius: 4px;\n    background: var(--button-secondary-background, #4e5058);\n    color: var(--button-secondary-text, #fff);\n    font: inherit;\n    cursor: pointer;\n}\n\n.vimcord-settings-reset:hover {\n    background: var(--button-secondary-background-hover, #6d6f78);\n}\n";
+
+// src/settings-panel.js
+var MODIFIER_KEYS = /* @__PURE__ */ new Set(["Shift", "Control", "Alt", "Meta", "CapsLock", "AltGraph"]);
+var nextPanelId = 0;
+function keyLabel(key) {
+  return key === " " ? "Space" : key;
+}
+function createElement(tag, className, text) {
+  const element = document.createElement(tag);
+  element.className = className;
+  if (text !== void 0) {
+    element.textContent = text;
+  }
+  return element;
+}
+var SettingsPanel = class {
+  constructor(settings) {
+    this.settings = settings;
+    this.listeners = new AbortController();
+    this.buttons = /* @__PURE__ */ new Map();
+    this.captureAction = null;
+    const panelId = `vimcord-settings-${++nextPanelId}`;
+    this.element = createElement("div", "vimcord-settings");
+    this.element.dataset.vimcordSettings = "";
+    const style = document.createElement("style");
+    style.textContent = settings_default;
+    this.element.append(style);
+    this.element.append(createElement("h2", "vimcord-settings-heading", "Preferences"));
+    const scrollRow = createElement("div", "vimcord-settings-row");
+    const scrollLabel = createElement("label", "", "Scroll amount (pixels)");
+    scrollLabel.htmlFor = `${panelId}-scroll`;
+    this.scrollInput = createElement("input", "vimcord-settings-input");
+    this.scrollInput.id = scrollLabel.htmlFor;
+    this.scrollInput.type = "number";
+    this.scrollInput.min = "10";
+    this.scrollInput.max = "1000";
+    this.scrollInput.step = "1";
+    this.listen(this.scrollInput, "change", () => this.saveScrollAmount());
+    scrollRow.append(scrollLabel, this.scrollInput);
+    this.element.append(scrollRow);
+    this.element.append(createElement("h2", "vimcord-settings-heading", "Keybinds"));
+    const instructions = createElement(
+      "p",
+      "vimcord-settings-description",
+      "Select a key, then press its replacement. Shifted characters and Space are supported. Escape cancels."
+    );
+    instructions.id = `${panelId}-instructions`;
+    this.element.append(instructions);
+    for (const [action, label] of Object.entries(KEYBIND_LABELS)) {
+      const row = createElement("div", "vimcord-settings-row");
+      const button = createElement("button", "vimcord-settings-key");
+      button.type = "button";
+      button.dataset.action = action;
+      button.setAttribute("aria-describedby", instructions.id);
+      this.listen(button, "click", () => this.beginCapture(action));
+      this.listen(button, "keydown", (event) => this.captureKey(event, action));
+      this.listen(button, "blur", () => {
+        if (this.captureAction === action) {
+          this.cancelCapture();
+        }
+      });
+      this.buttons.set(action, button);
+      row.append(createElement("span", "", label), button);
+      this.element.append(row);
+    }
+    this.status = createElement("p", "vimcord-settings-status");
+    this.status.setAttribute("role", "status");
+    this.status.setAttribute("aria-live", "polite");
+    this.status.setAttribute("aria-atomic", "true");
+    this.element.append(this.status);
+    const resetButton = createElement("button", "vimcord-settings-reset", "Reset to defaults");
+    resetButton.type = "button";
+    this.listen(resetButton, "click", () => this.confirmReset());
+    this.element.append(resetButton);
+    this.render();
+  }
+  listen(element, eventName, handler) {
+    element.addEventListener(eventName, handler, { signal: this.listeners.signal });
+  }
+  render() {
+    this.scrollInput.value = this.settings.scrollAmount;
+    for (const [action, button] of this.buttons) {
+      const capturing = this.captureAction === action;
+      const binding = keyLabel(this.settings.keybinds[action]);
+      button.textContent = capturing ? "Press a key\u2026" : binding;
+      button.classList.toggle("is-capturing", capturing);
+      button.setAttribute(
+        "aria-label",
+        `${KEYBIND_LABELS[action]}: ${capturing ? "press a new key" : binding}`
+      );
+    }
+  }
+  setStatus(message, isError = false) {
+    this.status.textContent = message;
+    this.status.classList.toggle("is-error", isError);
+  }
+  saveScrollAmount() {
+    try {
+      this.settings.setScrollAmount(this.scrollInput.value);
+      this.setStatus("Scroll amount saved.");
+    } catch (error) {
+      this.setStatus(error.message, true);
+    }
+    this.render();
+  }
+  beginCapture(action) {
+    this.captureAction = action;
+    this.buttons.get(action).focus();
+    this.render();
+    this.setStatus(`Press a new key for ${KEYBIND_LABELS[action]}. Escape cancels.`);
+  }
+  cancelCapture() {
+    if (this.captureAction === null) {
+      return;
+    }
+    this.captureAction = null;
+    this.render();
+    this.setStatus("Key change canceled.");
+  }
+  captureKey(event, action) {
+    if (this.captureAction !== action) {
+      return;
+    }
+    const button = this.buttons.get(action);
+    if (!this.element.isConnected || document.activeElement !== button) {
+      this.cancelCapture();
+      return;
+    }
+    if (event.key === "Tab") {
+      this.cancelCapture();
+      return;
+    }
+    if (event.repeat || event.isComposing || event.key === "Dead" || MODIFIER_KEYS.has(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.cancelCapture();
+    if (event.key === "Escape") {
+      return;
+    }
+    if (event.ctrlKey || event.altKey || event.metaKey) {
+      this.setStatus("Control, Alt, and Meta key combinations are not supported.", true);
+      return;
+    }
+    try {
+      this.settings.setKeybind(action, event.key);
+      this.render();
+      this.setStatus(`${KEYBIND_LABELS[action]} changed to ${keyLabel(event.key)}.`);
+    } catch (error) {
+      this.setStatus(error.message, true);
+    }
+  }
+  confirmReset() {
+    this.cancelCapture();
+    try {
+      BdApi.UI.showConfirmationModal(
+        "Reset to defaults?",
+        "This will restore all keybinds and preferences to their default values.",
+        {
+          confirmText: "Reset",
+          cancelText: "Cancel",
+          danger: true,
+          onConfirm: () => {
+            if (this.listeners.signal.aborted) {
+              return;
+            }
+            try {
+              this.settings.reset();
+              this.render();
+              this.setStatus("Keybinds and preferences reset to defaults.");
+            } catch (error) {
+              this.setStatus(error.message, true);
+            }
+          }
+        }
+      );
+    } catch (error) {
+      this.setStatus(error.message, true);
+    }
+  }
+  dispose() {
+    this.cancelCapture();
+    this.listeners.abort();
+  }
+};
+
 // src/styles.css
 var styles_default = ".vimcord-indicator-container {\n    width: 100%;\n    padding: 4px 8px;\n    box-sizing: border-box;\n    font-size: 12px;\n    font-weight: 600;\n    border-top: 1px solid var(--vimcord-indicator-border, rgba(255, 255, 255, 0.05));\n    background: var(--vimcord-indicator-bg, var(--background-secondary, #181825));\n    color: var(--vimcord-indicator-fg, var(--text-normal, #fff));\n    white-space: nowrap;\n    overflow: hidden;\n    text-overflow: ellipsis;\n    pointer-events: none;\n    flex-shrink: 0;\n}\n\n.vimcord-indicator-container.is-floating {\n    position: fixed;\n    bottom: 8px;\n    left: 8px;\n    width: auto;\n    z-index: 2147483646;\n    border-radius: 4px;\n}\n\n.vimcord-indicator {\n    font-family: var(--vimcord-font, inherit);\n}\n\n[data-vimcord='hints'] {\n    position: fixed;\n    inset: 0;\n    z-index: 2147483647;\n    pointer-events: none;\n    contain: layout style;\n}\n\n.vimcord-hint {\n    position: absolute;\n    background: var(--vimcord-hint-bg, #ffd700);\n    color: var(--vimcord-hint-fg, #000);\n    border: 1px solid var(--vimcord-hint-border, #333);\n    border-radius: var(--vimcord-hint-radius, 4px);\n    padding: var(--vimcord-hint-padding, 2px 5px);\n    font: 700 var(--vimcord-hint-size, 12px) var(--vimcord-font, ui-monospace, monospace);\n    line-height: 1.2;\n    pointer-events: none;\n    user-select: none;\n    transform: translate(-50%, -50%);\n    white-space: nowrap;\n}\n\n.vimcord-hint.is-hidden {\n    display: none;\n}\n.vimcord-hint.is-match {\n    opacity: 1;\n}\n.vimcord-hint.is-exact {\n    box-shadow: 0 0 0 2px currentColor inset;\n}\n\n.vimcord-hint-connectors {\n    position: absolute;\n    inset: 0;\n    overflow: visible;\n    pointer-events: none;\n    color: var(--vimcord-hint-bg, #ffd700);\n}\n\n.vimcord-hint-connector {\n    stroke: currentColor;\n    stroke-width: 1;\n    fill: currentColor;\n    opacity: 0.65;\n}\n\n.vimcord-hint-connector.is-hidden {\n    display: none;\n}\n";
 
 // src/index.js
 var VimCord = class {
+  constructor() {
+    this.settings = new PluginSettings();
+    this.settingsPanel = null;
+  }
+  getSettingsPanel() {
+    this.settingsPanel?.dispose();
+    this.settingsPanel = new SettingsPanel(this.settings);
+    return this.settingsPanel.element;
+  }
   start() {
     if (this.running) {
       return;
@@ -864,6 +1207,7 @@ var VimCord = class {
   }
   stop() {
     this.running = false;
+    this.settingsPanel?.cancelCapture();
     this.events?.abort();
     this.observer?.disconnect();
     if (this.frame !== null && this.frame !== void 0) {
@@ -972,6 +1316,9 @@ var VimCord = class {
     }
   }
   onKeyDown(event) {
+    if (event.target instanceof Element && event.target.closest("[data-vimcord-settings]")) {
+      return;
+    }
     if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
       return;
     }
@@ -999,18 +1346,19 @@ var VimCord = class {
       }
       return;
     }
-    if (!["f", "h", "j", "k", "l", "d", "D", "u", "U", "i"].includes(event.key)) {
+    const action = this.settings.actionForKey(event.key);
+    if (!action) {
       return;
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    switch (event.key) {
-      case "f":
+    switch (action) {
+      case "hint":
         if (!event.repeat) {
           this.setMode("hint");
         }
         break;
-      case "i": {
+      case "insert": {
         if (event.repeat) {
           break;
         }
@@ -1019,24 +1367,22 @@ var VimCord = class {
         editor?.focus({ preventScroll: true });
         break;
       }
-      case "h":
+      case "paneLeft":
         this.panes.move(-1);
         break;
-      case "l":
+      case "paneRight":
         this.panes.move(1);
         break;
-      case "j":
-        this.panes.scroll(80);
+      case "scrollDown":
+        this.panes.scroll(this.settings.scrollAmount);
         break;
-      case "k":
-        this.panes.scroll(-80);
+      case "scrollUp":
+        this.panes.scroll(-this.settings.scrollAmount);
         break;
-      case "d":
-      case "D":
+      case "halfPageDown":
         this.panes.scroll(this.panes.pageSize / 2);
         break;
-      case "u":
-      case "U":
+      case "halfPageUp":
         this.panes.scroll(-this.panes.pageSize / 2);
         break;
     }

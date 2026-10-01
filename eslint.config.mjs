@@ -17,7 +17,7 @@ export default defineConfig([
         },
     },
     {
-        files: ['scripts/**/*.{js,mjs,cjs}', 'eslint.config.mjs'],
+        files: ['scripts/**/*.{js,mjs,cjs}', 'tests/**/*.mjs', 'eslint.config.mjs'],
         languageOptions: {
             globals: globals.node,
         },

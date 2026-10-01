@@ -2,9 +2,22 @@ import { editableTarget, findPreferredInput, isComposer, OWNED_SELECTOR } from '
 import { HintSession } from './hints.js';
 import { ModeIndicator, USER_PANEL_SELECTOR } from './indicator.js';
 import { PaneManager, paneMutationRelevant } from './panes.js';
+import { PluginSettings } from './settings.js';
+import { SettingsPanel } from './settings-panel.js';
 import styles from './styles.css';
 
 export default class VimCord {
+    constructor() {
+        this.settings = new PluginSettings();
+        this.settingsPanel = null;
+    }
+
+    getSettingsPanel() {
+        this.settingsPanel?.dispose();
+        this.settingsPanel = new SettingsPanel(this.settings);
+        return this.settingsPanel.element;
+    }
+
     start() {
         if (this.running) {
             return;
@@ -55,6 +68,7 @@ export default class VimCord {
 
     stop() {
         this.running = false;
+        this.settingsPanel?.cancelCapture();
         this.events?.abort();
         this.observer?.disconnect();
         if (this.frame !== null && this.frame !== undefined) {
@@ -182,6 +196,9 @@ export default class VimCord {
     }
 
     onKeyDown(event) {
+        if (event.target instanceof Element && event.target.closest('[data-vimcord-settings]')) {
+            return;
+        }
         if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
             return;
         }
@@ -215,19 +232,20 @@ export default class VimCord {
             return;
         }
 
-        if (!['f', 'h', 'j', 'k', 'l', 'd', 'D', 'u', 'U', 'i'].includes(event.key)) {
+        const action = this.settings.actionForKey(event.key);
+        if (!action) {
             return;
         }
         event.preventDefault();
         event.stopImmediatePropagation();
 
-        switch (event.key) {
-            case 'f':
+        switch (action) {
+            case 'hint':
                 if (!event.repeat) {
                     this.setMode('hint');
                 }
                 break;
-            case 'i': {
+            case 'insert': {
                 if (event.repeat) {
                     break;
                 }
@@ -236,24 +254,22 @@ export default class VimCord {
                 editor?.focus({ preventScroll: true });
                 break;
             }
-            case 'h':
+            case 'paneLeft':
                 this.panes.move(-1);
                 break;
-            case 'l':
+            case 'paneRight':
                 this.panes.move(1);
                 break;
-            case 'j':
-                this.panes.scroll(80);
+            case 'scrollDown':
+                this.panes.scroll(this.settings.scrollAmount);
                 break;
-            case 'k':
-                this.panes.scroll(-80);
+            case 'scrollUp':
+                this.panes.scroll(-this.settings.scrollAmount);
                 break;
-            case 'd':
-            case 'D':
+            case 'halfPageDown':
                 this.panes.scroll(this.panes.pageSize / 2);
                 break;
-            case 'u':
-            case 'U':
+            case 'halfPageUp':
                 this.panes.scroll(-this.panes.pageSize / 2);
                 break;
         }
