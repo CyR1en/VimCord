@@ -1,0 +1,93 @@
+.vimcord-settings {
+    padding: 16px;
+    color: var(--header-primary, #f2f3f5);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.vimcord-settings .vimcord-settings-heading {
+    margin: 20px 0 12px;
+    color: var(--header-primary, #f2f3f5);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.vimcord-settings .vimcord-settings-heading:first-of-type {
+    margin-top: 0;
+}
+
+.vimcord-settings-description {
+    margin: 0 0 12px;
+    color: var(--header-secondary, #b5bac1);
+}
+
+.vimcord-settings-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--background-modifier-accent, #4e5058);
+}
+
+.vimcord-settings-input,
+.vimcord-settings-key {
+    box-sizing: border-box;
+    min-height: 34px;
+    padding: 5px 10px;
+    border: 1px solid var(--background-modifier-accent, #4e5058);
+    border-radius: 4px;
+    background: var(--background-secondary, #2b2d31);
+    color: var(--header-primary, #f2f3f5);
+    font: inherit;
+}
+
+.vimcord-settings-input {
+    width: 100px;
+    max-width: 100%;
+}
+
+.vimcord-settings-key {
+    min-width: 100px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.vimcord-settings-key:hover,
+.vimcord-settings-key.is-capturing {
+    background: var(--background-modifier-hover, #404249);
+}
+
+.vimcord-settings-input:focus-visible,
+.vimcord-settings-key:focus-visible,
+.vimcord-settings-reset:focus-visible {
+    outline: 2px solid var(--text-link, #00a8fc);
+    outline-offset: 2px;
+}
+
+.vimcord-settings-status {
+    min-height: 20px;
+    margin: 12px 0;
+    color: var(--header-secondary, #b5bac1);
+    font-size: 13px;
+}
+
+.vimcord-settings-status.is-error {
+    color: var(--text-danger, #fa777c);
+}
+
+.vimcord-settings-reset {
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 4px;
+    background: var(--button-secondary-background, #4e5058);
+    color: var(--button-secondary-text, #fff);
+    font: inherit;
+    cursor: pointer;
+}
+
+.vimcord-settings-reset:hover {
+    background: var(--button-secondary-background-hover, #6d6f78);
+}

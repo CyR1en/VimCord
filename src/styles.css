@@ -1,0 +1,80 @@
+.vimcord-indicator-container {
+    width: 100%;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    font-size: 12px;
+    font-weight: 600;
+    border-top: 1px solid var(--vimcord-indicator-border, rgba(255, 255, 255, 0.05));
+    background: var(--vimcord-indicator-bg, var(--background-secondary, #181825));
+    color: var(--vimcord-indicator-fg, var(--text-normal, #fff));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.vimcord-indicator-container.is-floating {
+    position: fixed;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    z-index: 2147483646;
+    border-radius: 4px;
+}
+
+.vimcord-indicator {
+    font-family: var(--vimcord-font, inherit);
+}
+
+[data-vimcord='hints'] {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+    contain: layout style;
+}
+
+.vimcord-hint {
+    position: absolute;
+    background: var(--vimcord-hint-bg, #ffd700);
+    color: var(--vimcord-hint-fg, #000);
+    border: 1px solid var(--vimcord-hint-border, #333);
+    border-radius: var(--vimcord-hint-radius, 4px);
+    padding: var(--vimcord-hint-padding, 2px 5px);
+    font: 700 var(--vimcord-hint-size, 12px) var(--vimcord-font, ui-monospace, monospace);
+    line-height: 1.2;
+    pointer-events: none;
+    user-select: none;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+}
+
+.vimcord-hint.is-hidden {
+    display: none;
+}
+.vimcord-hint.is-match {
+    opacity: 1;
+}
+.vimcord-hint.is-exact {
+    box-shadow: 0 0 0 2px currentColor inset;
+}
+
+.vimcord-hint-connectors {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+    color: var(--vimcord-hint-bg, #ffd700);
+}
+
+.vimcord-hint-connector {
+    stroke: currentColor;
+    stroke-width: 1;
+    fill: currentColor;
+    opacity: 0.65;
+}
+
+.vimcord-hint-connector.is-hidden {
+    display: none;
+}
