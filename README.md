@@ -1,110 +1,131 @@
 # VimCord
 
-VimCord is a BetterDiscord plugin that brings Vim-style navigation and link hinting to Discord. Move around with hjkl, focus panes, and click anything using keyboard-driven hint labels.
+Vim-style keyboard navigation and link hints for BetterDiscord.
 
-Note: This plugin is very much a work in progress. Visual mode will be implemented in the future.
+VimCord has three modes: **Normal** for navigation, **Insert** for typing, and **Hint** for selecting controls by their labels. It works with server and channel lists, DMs, chat, member lists, friends, and scrollable dialogs.
 
-<p align="center">
-    <img src="media/image.png" width="426" height="240" alt="No hints"/>
-    <img src="media/image(hints).png" width="426" height="240" alt="With Hints"/>
-</p>
+## Install
 
-## Features
+1. Install [BetterDiscord](https://docs.betterdiscord.app/users/getting-started/installation).
+2. Download [`VimCord.plugin.js`](https://raw.githubusercontent.com/CyR1en/VimCord/refs/heads/main/VimCord.plugin.js) from this repository.
+3. Copy it into your BetterDiscord plugins folder:
 
-- Normal, Insert, and Hint modes with a subtle mode indicator in the user area
-- Keyboard scrolling and pane switching (server list, channel list, DM/friends, chat)
-- Robust hinting:
-    - Filters visible/clickable elements
-    - Handles click traps with a multi-strategy “real click” simulation
-    - Live filtering as you type
-    - Enter to accept; auto-accept after a short pause
-    - Ambiguous exact matches wait (e.g., A vs. AA), unambiguous exact matches activate immediately
-- Customizable visuals via BetterDiscord’s Custom CSS
+   | Platform | Plugins folder                                        |
+   | -------- | ----------------------------------------------------- |
+   | Windows  | `%AppData%/BetterDiscord/plugins`                     |
+   | macOS    | `~/Library/Application Support/BetterDiscord/plugins` |
+   | Linux    | `~/.config/BetterDiscord/plugins`                     |
 
-## Installation
+4. Enable **VimCord** in **User Settings → BetterDiscord → Plugins**.
 
-1. Install BetterDiscord (if you haven’t already).
-2. Download the VimCord.plugin.js file.
-3. Place the file into your BetterDiscord plugins folder:
-    - Windows: `%AppData%/BetterDiscord/plugins`
-    - macOS: `~/Library/Application Support/BetterDiscord/plugins`
-    - Linux: `~/.config/BetterDiscord/plugins`
-4. In Discord, open User Settings → BetterDiscord → Plugins, and enable VimCord.
+Only the generated `VimCord.plugin.js` is needed to install. Node.js and the source folder are for development.
 
-## Usage
+## Use
 
-- Press f to enter hint mode.
-- Type the hint label to select. Press Enter to accept or pause briefly to auto-accept when there’s only one candidate (or when your sequence is an exact, unambiguous match).
-- `hjkl` to move focus left/right between panes and scroll up/down.
-- `i` to go to insert mode and focus an input. Escape to return to normal mode.
+| Mode   | Key         | Action                                                   |
+| ------ | ----------- | -------------------------------------------------------- |
+| Normal | `h` / `l`   | Select the previous / next pane                          |
+| Normal | `j` / `k`   | Scroll the selected pane down / up                       |
+| Normal | `d` / `u`   | Scroll half the selected pane's height                   |
+| Normal | `f`         | Show hints for visible controls                          |
+| Normal | `i`         | Enter Insert mode and focus an editor                    |
+| Insert | `Escape`    | Leave the editor and return to Normal mode               |
+| Hint   | Letters     | Narrow the labels; activate a complete label immediately |
+| Hint   | `Backspace` | Undo the last hint letter                                |
+| Hint   | `Enter`     | Activate the sole remaining match                        |
+| Hint   | `Escape`    | Cancel hints                                             |
 
-Tip: If a hint doesn’t seem clickable due to overlays, VimCord tries multiple strategies to simulate a real user click and click-through overlays.
+The indicator shows the current mode and selected pane. Clicking or tabbing into an editable input enters Insert mode. An editor already focused when the plugin starts stays usable. Modifier shortcuts and IME composition pass through to Discord.
 
-## Customizing appearance (BetterDiscord Custom CSS)
+When the member sidebar is open, `l` from Channel selects Member List; `h` returns to Channel. Closing the selected member list returns pane selection to Channel.
 
-You can theme the indicator and hint chips using Custom CSS. Paste this into BetterDiscord’s Custom CSS panel:
+Hint labels never overlap by prefix: a label such as `A` will not coexist with `AA`. There is no selection timeout. Invalid hint letters are ignored. Scrolling, resizing, navigation, or a pointer interaction cancels hints so labels do not remain at stale positions.
+
+Labels also avoid visual collisions. Crowded labels move to nearby free space, with a small connector pointing to the target. Placement respects your font and padding settings and stays fixed while you type. If the placement search runs out of room, lower-priority hints are omitted for that scan rather than drawn on top of another label.
+
+Scrolling is immediate, including held `j` / `k` keys. `i` prefers an editor in the foreground dialog, then the channel composer. Native Discord controls are activated once, without temporarily disabling overlays or replaying a chain of simulated clicks.
+
+Visual mode is not implemented, and `v` has no VimCord binding.
+
+## Customize appearance
+
+Use BetterDiscord's Custom CSS. The original indicator and hint classes remain available:
 
 ```css
-/* Indicator bar */
 .vimcord-indicator-container {
   --vimcord-indicator-bg: #181825;
   --vimcord-indicator-fg: #a6adc8;
-  --vimcord-indicator-border: rgba(0,0,0,0);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vimcord-indicator-border: transparent;
+  --vimcord-font: ui-monospace, monospace;
 }
 
-/* Hint chips */
 .vimcord-hint {
   --vimcord-hint-bg: #f9e2af;
   --vimcord-hint-fg: #11111b;
-  --vimcord-hint-border: rgba(0,0,0,0);
+  --vimcord-hint-border: transparent;
   --vimcord-hint-radius: 6px;
   --vimcord-hint-padding: 3px 6px;
   --vimcord-hint-size: 11px;
-  letter-spacing: 0.5px;
 }
-.vimcord-hint.is-exact {
-  box-shadow: 0 0 0 2px #181825 inset;
-}
-.vimcord-hint:not(.is-match) { opacity: 1; }
 ```
 
-Available hooks and variables:
-- Classes
-    - .vimcord-indicator-container
-    - .vimcord-indicator
-    - .vimcord-hint, .vimcord-hint.is-match, .vimcord-hint.is-exact, .vimcord-hint.is-hidden
-- CSS variables
-    - Indicator: --vimcord-indicator-bg, --vimcord-indicator-fg, --vimcord-indicator-border, --vimcord-font
-    - Hints: --vimcord-hint-bg, --vimcord-hint-fg, --vimcord-hint-border, --vimcord-hint-radius, --vimcord-hint-padding, --vimcord-hint-size
+Other hooks are `.vimcord-indicator`, `.vimcord-hints`, and the hint classes `.is-match`, `.is-exact`, and `.is-hidden`. The indicator appears in the user panel, or floats at the bottom left when that panel is unavailable.
 
-## Keybindings (default)
+## Develop
 
-- Normal mode:
-    - f: enter hint mode
-    - h/l: move focus left/right across panes
-    - j/k: scroll active pane down/up
-    - d/u: half-page down/up
-    - i: enter insert mode (focus input)
-    - Escape: exit to normal mode (from insert/visual/hint)
-- Hint mode:
-    - Letters: build a label sequence (filtered live)
-    - Backspace: remove the last character
-    - Enter: accept if exact or only one match
-    - Stop typing briefly: auto-accept when unambiguous
+BetterDiscord requires **one distributed JavaScript file**, but explicitly supports **multiple source files bundled into it**. See its [plugin structure](https://docs.betterdiscord.app/plugins/introduction/structure) and [bundling guide](https://docs.betterdiscord.app/plugins/tutorials/bundling).
 
-## Troubleshooting
+VimCord uses plain JavaScript modules and esbuild. There are no runtime libraries. The build includes CSS as text, adds BetterDiscord's metadata header, and exports the plugin class through CommonJS. Output is readable, without minification or source maps, following the [plugin guidelines](https://docs.betterdiscord.app/plugins/publishing/guidelines).
 
-- No hints appear: Ensure the target is visible and not covered by other UI. The plugin filters out hidden or out-of-viewport elements.
-- Clicking doesn’t work: Some overlays intercept clicks. VimCord tries multiple fallback strategies; report elements that remain problematic.
+```text
+src/
+  index.js       Plugin lifecycle, modes, keyboard and focus handling
+  dom.js         Editor detection, visibility and foreground surfaces
+  panes.js       Pane discovery, selection and scrolling
+  hints.js       Candidate measurement, labels and hint session cleanup
+  hint-layout.js Collision placement using a spatial grid
+  indicator.js   Mode indicator
+  styles.css     Default appearance
+scripts/
+  build.mjs      Single-file bundle and metadata
+VimCord.plugin.js Generated installable plugin; do not edit directly
+```
 
-## Roadmap
+Use Node.js 24 or later:
 
-- Visual mode (in progress)
-- Keymap customization
-- Per-scope hint alphabets and configurable timeout
-- Non-QWERTY layout improvements
+```sh
+npm ci
+npm run build
+npm run watch  # Rebuild after source changes; Ctrl+C to stop
+npm run lint          # Check JavaScript for mistakes and readability
+npm run lint:fix      # Apply available ESLint fixes
+npm run format        # Format maintained source and documentation
+npm run format:check  # Check formatting without changing files
+npm run check         # Lint, check formatting, build, and check bundle syntax
+```
 
-## Contributing
+ESLint enforces coding rules, and Prettier handles formatting. See [CONTRIBUTING.md](CONTRIBUTING.md) for the project style guide. The generated bundle is excluded from both tools.
 
-Issues and pull requests are welcome. If you propose new selectors or behaviors, include a short description of the UI you’re addressing and steps to reproduce.
+The root bundle is kept in the repository so users can download it directly. Rebuild it whenever source changes. Copy it into the plugin folder to test, or symlink that file during development. The existing `create_symlink.ps1` helper supports Windows; rebuild before using it.
+
+### Runtime design
+
+- Each plugin instance owns its state and disposes it on disable.
+- One filtered DOM observer handles structural changes; route and resize events request a coalesced refresh. There is no focus polling or editor-method patching.
+- Pane references remain valid when content grows from non-scrollable to scrollable. Ordinary message updates do not rescan the entire interface.
+- Hints use one targeted candidate query. Geometry, priority, and a visible anchor are measured before overlays are inserted; sorting uses cached numbers.
+- Label sizes are read in one batch. Collision placement checks neighboring spatial-grid cells with a bounded local search and a shared fallback cursor; it never runs during typing.
+- Candidate geometry is discarded when hint mode ends. Activation rechecks that the selected element is still visible and connected.
+- Selectors prefer roles and list IDs, with class-name stems as compatibility fallbacks instead of exact generated hashes.
+
+### Check a change in Discord
+
+Use ordinary navigation controls and an empty editor; no test messages need to be sent.
+
+1. Enable, disable, and re-enable the plugin. Confirm the indicator and hints are removed on disable and normal input focus still works.
+2. Switch servers/channels/DMs, move between panes, and hold `j` / `k`.
+3. Open hints, narrow a two-letter label, backspace, select a control, and cancel with Escape or scrolling.
+4. Enter Insert mode, type a temporary draft, remove it, and Escape. Check clicks, Tab, shortcuts, and IME input.
+5. Repeat in a dialog or settings page. Check that covered background controls are not activated.
+
+`npm run check` checks lint rules, formatting, packaging, and syntax; it does not test Discord integration. Discord can change its DOM, so live checks are still needed when updating selectors. Unsupported custom controls should get a narrow, verified compatibility fix rather than global click retries.
