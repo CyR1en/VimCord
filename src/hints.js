@@ -176,11 +176,18 @@ export class HintSession {
         return this.root !== null;
     }
 
-    start() {
+    start(scope = document) {
         this.stop();
+        if (!scope) {
+            return false;
+        }
         const viewport = viewportSize();
         const targets = [];
-        for (const element of document.querySelectorAll(CLICKABLE_SELECTOR)) {
+        const candidates = [...scope.querySelectorAll(CLICKABLE_SELECTOR)];
+        if (scope.matches?.(CLICKABLE_SELECTOR)) {
+            candidates.unshift(scope);
+        }
+        for (const element of candidates) {
             const target = measureTarget(element, viewport);
             if (target) {
                 targets.push(target);

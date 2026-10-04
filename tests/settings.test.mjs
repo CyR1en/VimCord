@@ -23,14 +23,15 @@ function memoryStorage(initial = {}) {
 test('defaults dispatch exact keys, plus uppercase half-page aliases', () => {
     const settings = new PluginSettings(memoryStorage());
     assert.equal(settings.scrollAmount, DEFAULT_SCROLL_AMOUNT);
+    assert.equal(settings.showFocusOutline, true);
     assert.deepEqual(settings.keybinds, DEFAULT_KEYBINDS);
     assert.equal(settings.actionForKey('f'), 'hint');
-    assert.equal(settings.actionForKey('F'), undefined);
+    assert.equal(settings.actionForKey('F'), 'hintAll');
     assert.equal(settings.actionForKey('d'), 'halfPageDown');
     assert.equal(settings.actionForKey('D'), 'halfPageDown');
     assert.equal(settings.actionForKey('U'), 'halfPageUp');
     assert.equal(settings.actionForKey('Escape'), undefined);
-    assert.equal(settings.actionForKey('v'), undefined);
+    assert.equal(settings.actionForKey('v'), 'visual');
     assert.ok(Object.isFrozen(settings.keybinds));
 });
 
@@ -44,7 +45,7 @@ test('loads legacy preferences, ignores removed actions, and preserves valid swa
     assert.equal(settings.scrollAmount, 125);
     assert.equal(settings.actionForKey('i'), 'hint');
     assert.equal(settings.actionForKey('f'), 'insert');
-    assert.equal(settings.actionForKey('v'), undefined);
+    assert.equal(settings.actionForKey('v'), 'visual');
     assert.equal(settings.actionForKey('x'), undefined);
     assert.deepEqual(Object.keys(settings.keybinds), Object.keys(DEFAULT_KEYBINDS));
 });
@@ -134,9 +135,13 @@ test('remap and reset persist one complete snapshot that takes precedence over l
     const settings = new PluginSettings(storage);
     settings.setKeybind('hint', 'q');
     settings.setScrollAmount(160);
+    settings.setShowFocusOutline(false);
+    settings.setFocusOutlineFadeDelay(4.5);
     const reloaded = new PluginSettings(storage);
     assert.equal(reloaded.keybinds.hint, 'q');
     assert.equal(reloaded.scrollAmount, 160);
+    assert.equal(reloaded.showFocusOutline, false);
+    assert.equal(reloaded.focusOutlineFadeDelay, 4.5);
     const beforeReset = storage.writes.length;
     reloaded.reset();
     assert.equal(storage.writes.length, beforeReset + 1);
@@ -144,10 +149,83 @@ test('remap and reset persist one complete snapshot that takes precedence over l
     assert.deepEqual(storage.writes.at(-1).value, {
         scrollAmount: DEFAULT_SCROLL_AMOUNT,
         keybinds: DEFAULT_KEYBINDS,
+        showFocusOutline: true,
+        focusOutlineFadeDelay: 3,
+        hintsCurrentPane: true,
+        showSequenceHints: true,
+        rangeCopyAuthors: true,
+        rangeCopyTimestamps: false,
     });
     const afterReset = new PluginSettings(storage);
     assert.deepEqual(afterReset.keybinds, DEFAULT_KEYBINDS);
     assert.equal(afterReset.scrollAmount, DEFAULT_SCROLL_AMOUNT);
+    assert.equal(afterReset.showFocusOutline, true);
+    assert.equal(afterReset.focusOutlineFadeDelay, 3);
+});
+
+test('new defaults preserve existing remaps and unassigned actions survive reload', () => {
+    const storage = memoryStorage({ keybinds: { hint: 'v', insert: 'g' } });
+    const settings = new PluginSettings(storage);
+    assert.equal(settings.actionForKey('v'), 'hint');
+    assert.equal(settings.actionForKey('g'), 'insert');
+    assert.equal(settings.keybinds.visual, null);
+    assert.equal(settings.keybinds.jumpTop, null);
+    settings.setHintsCurrentPane(false);
+    assert.equal(new PluginSettings(storage).keybinds.visual, null);
+    settings.setKeybind('visual', 'x');
+    assert.equal(settings.actionForKey('x'), 'visual');
+    assert.equal(settings.actionForKey('y'), undefined);
+    assert.equal(settings.actionForKey('y', 'visual'), 'copyMessage');
+    for (const key of ['0', '1', '9']) {
+        assert.throws(() => settings.setKeybind('hint', key), /reserved for counts/);
+    }
+    assert.throws(() => settings.setHintsCurrentPane('false'), /whether to limit hints/);
+    assert.equal(new PluginSettings(storage).hintsCurrentPane, false);
+    settings.reset();
+    assert.equal(settings.hintsCurrentPane, true);
+});
+
+test('fade delays validate, use half-second steps, and persist across preference changes', () => {
+    for (const value of [undefined, null, true, '', ' ', {}, [], 'invalid', Infinity, NaN]) {
+        const settings = new PluginSettings(
+            memoryStorage({ settings: { focusOutlineFadeDelay: value } }),
+        );
+        assert.equal(settings.focusOutlineFadeDelay, 3);
+        assert.throws(() => settings.setFocusOutlineFadeDelay(value), /number of seconds/);
+    }
+    const storage = memoryStorage();
+    const settings = new PluginSettings(storage);
+    for (const [raw, expected] of [
+        ['4.2', 4],
+        ['4.3', 4.5],
+        [0, 0.5],
+        [100, 60],
+    ]) {
+        settings.setFocusOutlineFadeDelay(raw);
+        assert.equal(settings.focusOutlineFadeDelay, expected);
+    }
+    settings.setScrollAmount(160);
+    settings.setKeybind('hint', 'q');
+    settings.setShowFocusOutline(false);
+    settings.setShowFocusOutline(true);
+    assert.equal(new PluginSettings(storage).focusOutlineFadeDelay, 60);
+});
+
+test('outline preferences validate saved values and survive other settings changes', () => {
+    for (const value of [undefined, null, 0, 1, 'false', [], {}]) {
+        const settings = new PluginSettings(
+            memoryStorage({ settings: { showFocusOutline: value } }),
+        );
+        assert.equal(settings.showFocusOutline, true);
+        assert.throws(() => settings.setShowFocusOutline(value), /whether to show/);
+    }
+    const storage = memoryStorage({ settings: { showFocusOutline: false } });
+    const settings = new PluginSettings(storage);
+    settings.setScrollAmount(160);
+    settings.setKeybind('hint', 'q');
+    assert.equal(new PluginSettings(storage).showFocusOutline, false);
+    settings.setShowFocusOutline(true);
+    assert.equal(new PluginSettings(storage).showFocusOutline, true);
 });
 
 test('failed saves leave runtime state and persisted snapshot unchanged', () => {
@@ -155,6 +233,8 @@ test('failed saves leave runtime state and persisted snapshot unchanged', () => 
     const settings = new PluginSettings(storage);
     settings.setKeybind('hint', 'x');
     settings.setScrollAmount(160);
+    settings.setShowFocusOutline(false);
+    settings.setFocusOutlineFadeDelay(4.5);
     const saved = structuredClone(storage.data);
     storage.save = () => {
         throw new Error('disk is full');
@@ -162,11 +242,15 @@ test('failed saves leave runtime state and persisted snapshot unchanged', () => 
     for (const update of [
         () => settings.setKeybind('hint', 'q'),
         () => settings.setScrollAmount(240),
+        () => settings.setShowFocusOutline(true),
+        () => settings.setFocusOutlineFadeDelay(10),
         () => settings.reset(),
     ]) {
         assert.throws(update, /Failed to save VimCord settings: disk is full/);
         assert.equal(settings.keybinds.hint, 'x');
         assert.equal(settings.scrollAmount, 160);
+        assert.equal(settings.showFocusOutline, false);
+        assert.equal(settings.focusOutlineFadeDelay, 4.5);
         assert.deepEqual(storage.data, saved);
     }
 });

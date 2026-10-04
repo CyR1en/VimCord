@@ -31,6 +31,52 @@
     border-bottom: 1px solid var(--background-modifier-accent, #4e5058);
 }
 
+.vimcord-settings-row[hidden] {
+    display: none;
+}
+
+.vimcord-settings-preference {
+    flex: 1;
+    min-width: 180px;
+}
+
+.vimcord-settings-preference .vimcord-settings-description {
+    margin: 4px 0 0;
+    font-size: 12px;
+}
+
+.vimcord-settings-toggle {
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 20px;
+    margin: 0;
+    border: 0;
+    border-radius: 10px;
+    background: var(--interactive-muted, #4e5058);
+    cursor: pointer;
+}
+
+.vimcord-settings-toggle::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.vimcord-settings-toggle:checked {
+    background: var(--brand-500, #5865f2);
+}
+
+.vimcord-settings-toggle:checked::before {
+    transform: translateX(16px);
+}
+
 .vimcord-settings-input,
 .vimcord-settings-key {
     box-sizing: border-box;
@@ -60,6 +106,7 @@
 }
 
 .vimcord-settings-input:focus-visible,
+.vimcord-settings-toggle:focus-visible,
 .vimcord-settings-key:focus-visible,
 .vimcord-settings-reset:focus-visible {
     outline: 2px solid var(--text-link, #00a8fc);

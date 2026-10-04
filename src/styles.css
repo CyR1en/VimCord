@@ -1,30 +1,280 @@
+.vimcord-indicator-layer,
 .vimcord-indicator-container {
-    width: 100%;
-    padding: 4px 8px;
-    box-sizing: border-box;
-    font-size: 12px;
-    font-weight: 600;
-    border-top: 1px solid var(--vimcord-indicator-border, rgba(255, 255, 255, 0.05));
-    background: var(--vimcord-indicator-bg, var(--background-secondary, #181825));
-    color: var(--vimcord-indicator-fg, var(--text-normal, #fff));
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    pointer-events: none;
-    flex-shrink: 0;
+    --vimcord-mode-color: var(--vimcord-normal-color, var(--brand-500, #5865f2));
 }
 
-.vimcord-indicator-container.is-floating {
+.vimcord-indicator-layer {
     position: fixed;
-    bottom: 8px;
-    left: 8px;
-    width: auto;
+    inset: 0;
     z-index: 2147483646;
+    pointer-events: none;
+}
+
+.vimcord-indicator-layer[data-mode='insert'],
+.vimcord-indicator-container[data-mode='insert'] {
+    --vimcord-mode-color: var(--vimcord-insert-color, var(--status-positive, #3ba55c));
+}
+
+.vimcord-indicator-layer[data-mode='hint'],
+.vimcord-indicator-container[data-mode='hint'] {
+    --vimcord-mode-color: var(--vimcord-hint-color, var(--status-warning, #faa61a));
+}
+
+.vimcord-indicator-layer[data-mode='visual'],
+.vimcord-indicator-container[data-mode='visual'],
+.vimcord-indicator-layer[data-mode='range'],
+.vimcord-indicator-container[data-mode='range'] {
+    --vimcord-mode-color: var(--vimcord-visual-color, #b39df3);
+}
+
+.vimcord-message-in-range {
+    background: var(--background-message-highlight, rgba(179, 157, 243, 0.12)) !important;
+}
+
+.vimcord-sequence-hints {
+    position: fixed;
+    z-index: 2147483647;
+    box-sizing: border-box;
+    overflow: hidden;
+    pointer-events: none;
+    padding: 12px;
+    border: 1px solid var(--background-modifier-accent, #454550);
+    border-radius: 8px;
+    background: var(--background-floating, #1c1c24);
+    color: var(--text-normal, #eee);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    font: 12px/1.5 var(--font-primary, sans-serif);
+}
+
+.vimcord-sequence-hints strong,
+.vimcord-sequence-hints small {
+    display: block;
+}
+
+.vimcord-sequence-hints small {
+    margin-top: 8px;
+    color: var(--text-muted, #b5b5c2);
+}
+
+.vimcord-sequence-hints kbd {
+    font: 600 12px var(--font-code, monospace);
+    color: var(--vimcord-visual-color, #b39df3);
+}
+
+.vimcord-sequence-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.vimcord-sequence-row span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.vimcord-message-selected {
+    background: var(--background-message-highlight, rgba(179, 157, 243, 0.12)) !important;
+    box-shadow: inset 3px 0 var(--vimcord-visual-color, #b39df3);
+}
+
+.vimcord-command {
+    font: 600 12px var(--vimcord-font, ui-monospace, monospace);
+    color: var(--vimcord-mode-color);
+}
+
+.vimcord-help-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.vimcord-help {
+    box-sizing: border-box;
+    width: min(560px, 100%);
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+    border: 1px solid var(--background-modifier-accent, #454550);
+    border-radius: 12px;
+    background: var(--background-floating, #1c1c24);
+    color: var(--text-normal, #eee);
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
+    font: 14px/1.5 var(--font-primary, sans-serif);
+}
+
+.vimcord-help header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.vimcord-help h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.vimcord-help-close {
+    color: var(--text-normal, #eee);
+    background: var(--background-modifier-accent, #454550);
+    border: 0;
+    border-radius: 5px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.vimcord-help-close:focus-visible {
+    outline: 2px solid var(--brand-500, #5865f2);
+    outline-offset: 3px;
+}
+
+.vimcord-help-keys {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 10px 20px;
+    margin: 0;
+}
+
+.vimcord-help-keys dt,
+.vimcord-help-keys dd {
+    margin: 0;
+}
+
+.vimcord-help kbd {
+    font: 12px var(--font-code, monospace);
+    border: 1px solid var(--background-modifier-accent, #454550);
+    padding: 3px 6px;
     border-radius: 4px;
 }
 
+.vimcord-help-note {
+    margin: 20px 0 0;
+    color: var(--text-muted, #b5b5c2);
+    font-size: 12px;
+}
+
+.vimcord-pane-outline {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1.5px solid var(--vimcord-mode-color);
+    border-radius: var(--vimcord-focus-radius, 7px);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 250ms ease-out;
+}
+
+.vimcord-pane-outline.is-visible {
+    opacity: 1;
+    transition: none;
+}
+
+.vimcord-indicator-container {
+    position: absolute;
+    bottom: 12px;
+    inset-inline-end: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: calc(100% - 24px);
+    padding: 7px 10px;
+    box-sizing: border-box;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    border: 1px solid
+        var(--vimcord-indicator-border, var(--background-modifier-accent, rgba(255, 255, 255, 0.1)));
+    border-radius: 7px;
+    background: var(--vimcord-indicator-bg, var(--background-floating, #1c1c24));
+    color: var(--vimcord-indicator-fg, var(--text-normal, #fff));
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.vimcord-indicator-container.is-docked {
+    position: static;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 4px 8px;
+    gap: 8px;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: var(--vimcord-indicator-bg, transparent);
+}
+
 .vimcord-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
     font-family: var(--vimcord-font, inherit);
+}
+
+.vimcord-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.vimcord-mode::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--vimcord-mode-color);
+}
+
+.vimcord-target {
+    min-width: 0;
+    max-width: 36ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vimcord-shortcuts {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    color: var(--text-muted, #b5b5c2);
+    font-family: var(--vimcord-font, inherit);
+    font-size: 11px;
+}
+
+.vimcord-shortcuts kbd {
+    border: 1px solid var(--vimcord-indicator-border, var(--background-modifier-accent, #454550));
+    border-radius: 3px;
+    padding: 1px 4px;
+    font: inherit;
+}
+
+.vimcord-pane-outline[hidden],
+.vimcord-shortcuts[hidden] {
+    display: none;
+}
+
+@media (max-width: 420px) {
+    .vimcord-shortcuts {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vimcord-pane-outline {
+        transition: none;
+    }
 }
 
 [data-vimcord='hints'] {

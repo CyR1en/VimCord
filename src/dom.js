@@ -16,6 +16,23 @@ const NON_TEXT_INPUTS = new Set([
     'submit',
 ]);
 
+export function elementLabel(element) {
+    if (!element) {
+        return '';
+    }
+    const labelledBy = (element.getAttribute('aria-labelledby') || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((id) => element.ownerDocument.getElementById(id)?.textContent || '')
+        .join(' ')
+        .trim();
+    const label =
+        labelledBy ||
+        element.getAttribute('aria-label') ||
+        [...(element.labels || [])].map((node) => node.textContent).join(' ');
+    return label.replace(/\s+/g, ' ').trim();
+}
+
 export function editableTarget(element) {
     const target = element?.nodeType === 1 ? element : element?.parentElement;
     const editor = target?.closest?.(EDITABLE_SELECTOR);

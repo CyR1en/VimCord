@@ -1,0 +1,121 @@
+.vimcord-marks-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.vimcord-marks {
+    box-sizing: border-box;
+    width: min(680px, 100%);
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+    border: 1px solid var(--background-modifier-accent, #454550);
+    border-radius: 12px;
+    background: var(--background-floating, #1c1c24);
+    color: var(--text-normal, #eee);
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
+    font: 14px/1.5 var(--font-primary, sans-serif);
+}
+
+.vimcord-marks header,
+.vimcord-mark-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vimcord-marks header {
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.vimcord-marks h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.vimcord-marks button,
+.vimcord-marks input {
+    color: var(--text-normal, #eee);
+    background: var(--background-modifier-accent, #454550);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font: inherit;
+}
+
+.vimcord-marks button {
+    cursor: pointer;
+}
+
+.vimcord-marks input {
+    width: 2ch;
+    text-align: center;
+}
+
+.vimcord-marks :focus-visible {
+    outline: 2px solid var(--brand-500, #5865f2);
+    outline-offset: 2px;
+}
+
+.vimcord-mark-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--background-modifier-accent, #454550);
+}
+
+.vimcord-mark-description {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.vimcord-mark-description strong,
+.vimcord-mark-description span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vimcord-mark-description span,
+.vimcord-marks-note {
+    color: var(--text-muted, #b5b5c2);
+    font-size: 12px;
+}
+
+.vimcord-mark-row kbd {
+    text-align: center;
+    font: 600 14px var(--font-code, monospace);
+}
+
+.vimcord-marks-status {
+    min-height: 1.5em;
+    margin: 16px 0 8px;
+}
+
+.vimcord-marks-status.is-error {
+    color: var(--text-danger, #fa777c);
+}
+
+.vimcord-marks button[hidden] {
+    display: none;
+}
+
+@media (max-width: 620px) {
+    .vimcord-mark-row {
+        grid-template-columns: 32px minmax(0, 1fr);
+    }
+    .vimcord-mark-actions {
+        grid-column: 2;
+        flex-wrap: wrap;
+    }
+}

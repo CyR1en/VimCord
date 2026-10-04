@@ -1,6 +1,6 @@
 # Contributing to VimCord
 
-Use Node.js 24 or later, then run `npm ci`. See the [development instructions](README.md#develop) for the source layout and manual checks in Discord.
+Use Node.js 24 or later, then run `npm ci`. See the [development instructions](docs/guide.md#develop) for the source layout and manual checks in Discord.
 
 ## JavaScript style
 
@@ -25,6 +25,6 @@ npm run check
 
 `lint:fix` applies available ESLint fixes; resolve any remaining findings manually. `format` writes Prettier's output. For checks without edits, use `npm run lint` and `npm run format:check`.
 
-`npm run check` runs linting, a formatting check, the build, `node --check VimCord.plugin.js`, and `npm test`. The tests cover settings validation and DOM interaction using jsdom; run them separately with `npm test`. They do not cover full Discord integration, so use the manual checks in the README for behavior changes.
+`npm run check` runs linting, a formatting check, the build, `node --check VimCord.plugin.js`, and `npm test`. The tests cover settings validation and DOM interaction using jsdom; run them separately with `npm test`. They do not cover full Discord integration, so use the [manual checks in the guide](docs/guide.md#check-a-change-in-discord) for behavior changes.
 
 `VimCord.plugin.js` is generated and committed so users can download it. Edit source files and rebuild with `npm run build`; do not edit or format the bundle directly. Include the rebuilt bundle with source changes.
