@@ -52,6 +52,9 @@ export class ReadingHistory {
         this.entries = [];
         this.cursor = -1;
         this.pending = null;
+        this.pendingCursor = null;
+        this.canceledPaths = new Set();
+        this.lastPath = null;
         this.restored = null;
         this.jumpFrom = null;
     }
@@ -61,13 +64,24 @@ export class ReadingHistory {
         if (!position) {
             return;
         }
+        const previousPath = this.lastPath;
+        this.lastPath = position.path;
         if (this.pending) {
             if (position.path === this.pending.path && this.restore(this.pending)) {
                 this.restored = this.pending;
+                this.cursor = this.pendingCursor;
                 this.cancelPending();
+                this.canceledPaths.clear();
                 this.entries[this.cursor] = this.capture() || position;
             }
             return;
+        }
+        // Canceled cross-channel routes can still load after their restore has been abandoned.
+        if (this.canceledPaths.has(position.path)) {
+            return;
+        }
+        if (position.path !== previousPath) {
+            this.canceledPaths.clear();
         }
         const current = this.entries[this.cursor];
         if (
@@ -90,6 +104,7 @@ export class ReadingHistory {
     beforeJump() {
         this.restored = null;
         this.cancelPending();
+        this.canceledPaths.clear();
         this.update();
         this.clearJump();
         this.jumpFrom = this.entries[this.cursor] || null;
@@ -105,19 +120,22 @@ export class ReadingHistory {
             this.update();
         }
         this.clearJump();
-        const next = Math.max(0, Math.min(this.entries.length - 1, this.cursor + amount));
-        if (next === this.cursor || !this.entries[next]) {
+        const from = this.pendingCursor ?? this.cursor;
+        const next = Math.max(0, Math.min(this.entries.length - 1, from + amount));
+        if (next === from || !this.entries[next]) {
             this.notify(amount < 0 ? 'No earlier reading position.' : 'No later reading position.');
             return;
         }
-        const previous = this.cursor;
         this.cancelPending();
-        this.cursor = next;
+        // Repeated jumps follow the requested stop; only a successful restore moves the cursor.
+        this.pendingCursor = next;
         this.pending = this.entries[next];
         try {
             if (this.capture()?.path === this.pending.path && this.restore(this.pending)) {
                 this.restored = this.pending;
+                this.cursor = next;
                 this.cancelPending();
+                this.canceledPaths.clear();
                 return;
             }
             const target = this.pending;
@@ -131,7 +149,6 @@ export class ReadingHistory {
             }, 4000);
         } catch (error) {
             this.cancelPending();
-            this.cursor = previous;
             throw error;
         }
     }
@@ -143,14 +160,21 @@ export class ReadingHistory {
     }
 
     cancelPending() {
+        // Keep recording ordinary reading in the last successfully visited channel.
+        if (this.pending && this.pending.path !== this.entries[this.cursor]?.path) {
+            this.canceledPaths.add(this.pending.path);
+        }
         clearTimeout(this.restoreTimer);
         this.restoreTimer = null;
         this.pending = null;
+        this.pendingCursor = null;
     }
 
     stop() {
         this.restored = null;
         this.clearJump();
         this.cancelPending();
+        this.canceledPaths.clear();
+        this.lastPath = null;
     }
 }

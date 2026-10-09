@@ -1152,6 +1152,9 @@ var ReadingHistory = class {
     this.entries = [];
     this.cursor = -1;
     this.pending = null;
+    this.pendingCursor = null;
+    this.canceledPaths = /* @__PURE__ */ new Set();
+    this.lastPath = null;
     this.restored = null;
     this.jumpFrom = null;
   }
@@ -1160,13 +1163,23 @@ var ReadingHistory = class {
     if (!position) {
       return;
     }
+    const previousPath = this.lastPath;
+    this.lastPath = position.path;
     if (this.pending) {
       if (position.path === this.pending.path && this.restore(this.pending)) {
         this.restored = this.pending;
+        this.cursor = this.pendingCursor;
         this.cancelPending();
+        this.canceledPaths.clear();
         this.entries[this.cursor] = this.capture() || position;
       }
       return;
+    }
+    if (this.canceledPaths.has(position.path)) {
+      return;
+    }
+    if (position.path !== previousPath) {
+      this.canceledPaths.clear();
     }
     const current = this.entries[this.cursor];
     if (!current || current.path !== position.path || this.jumpFrom && !samePosition(this.jumpFrom, position)) {
@@ -1184,6 +1197,7 @@ var ReadingHistory = class {
   beforeJump() {
     this.restored = null;
     this.cancelPending();
+    this.canceledPaths.clear();
     this.update();
     this.clearJump();
     this.jumpFrom = this.entries[this.cursor] || null;
@@ -1198,19 +1212,21 @@ var ReadingHistory = class {
       this.update();
     }
     this.clearJump();
-    const next = Math.max(0, Math.min(this.entries.length - 1, this.cursor + amount));
-    if (next === this.cursor || !this.entries[next]) {
+    const from = this.pendingCursor ?? this.cursor;
+    const next = Math.max(0, Math.min(this.entries.length - 1, from + amount));
+    if (next === from || !this.entries[next]) {
       this.notify(amount < 0 ? "No earlier reading position." : "No later reading position.");
       return;
     }
-    const previous = this.cursor;
     this.cancelPending();
-    this.cursor = next;
+    this.pendingCursor = next;
     this.pending = this.entries[next];
     try {
       if (this.capture()?.path === this.pending.path && this.restore(this.pending)) {
         this.restored = this.pending;
+        this.cursor = next;
         this.cancelPending();
+        this.canceledPaths.clear();
         return;
       }
       const target = this.pending;
@@ -1224,7 +1240,6 @@ var ReadingHistory = class {
       }, 4e3);
     } catch (error) {
       this.cancelPending();
-      this.cursor = previous;
       throw error;
     }
   }
@@ -1234,14 +1249,20 @@ var ReadingHistory = class {
     this.jumpFrom = null;
   }
   cancelPending() {
+    if (this.pending && this.pending.path !== this.entries[this.cursor]?.path) {
+      this.canceledPaths.add(this.pending.path);
+    }
     clearTimeout(this.restoreTimer);
     this.restoreTimer = null;
     this.pending = null;
+    this.pendingCursor = null;
   }
   stop() {
     this.restored = null;
     this.clearJump();
     this.cancelPending();
+    this.canceledPaths.clear();
+    this.lastPath = null;
   }
 };
 
@@ -2213,15 +2234,64 @@ var MarksPanel = class {
 // src/messages.js
 var MESSAGE_LIST = '[data-list-id="chat-messages"]';
 var MESSAGE_ROW = '[id^="chat-messages-"]';
+var BLOCK_LINE_BREAKS = {
+  P: 2,
+  DIV: 1,
+  UL: 1,
+  OL: 1,
+  LI: 1,
+  BLOCKQUOTE: 1,
+  PRE: 1,
+  H1: 1,
+  H2: 1,
+  H3: 1,
+  H4: 1,
+  H5: 1,
+  H6: 1,
+  HR: 1
+};
 function messageText(article) {
-  const copy = article.querySelector('[id^="message-content-"]')?.cloneNode(true);
-  for (const image of copy?.querySelectorAll("img[alt]") || []) {
-    image.replaceWith(document.createTextNode(image.alt));
+  const content = article.querySelector('[id^="message-content-"]');
+  let text = "";
+  let pendingBreaks = 0;
+  const append = (value) => {
+    if (!value) {
+      return;
+    }
+    if (text && pendingBreaks) {
+      const trailingBreaks = text.match(/\n*$/)[0].length;
+      text += "\n".repeat(Math.max(0, pendingBreaks - trailingBreaks));
+    }
+    text += value;
+    pendingBreaks = 0;
+  };
+  const visit = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      append(node.textContent);
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return;
+    }
+    if (node.tagName === "BR") {
+      append("\n");
+      return;
+    }
+    if (node.matches("img[alt]")) {
+      append(node.alt);
+      return;
+    }
+    const breaks = BLOCK_LINE_BREAKS[node.tagName] || 0;
+    pendingBreaks = Math.max(pendingBreaks, breaks);
+    for (const child of node.childNodes) {
+      visit(child);
+    }
+    pendingBreaks = Math.max(pendingBreaks, breaks);
+  };
+  for (const child of content?.childNodes || []) {
+    visit(child);
   }
-  for (const br of copy?.querySelectorAll("br") || []) {
-    br.replaceWith(document.createTextNode("\n"));
-  }
-  return copy?.textContent || "";
+  return text;
 }
 function messageAuthor(article) {
   const ids = (article.getAttribute("aria-labelledby") || "").split(/\s+/);
@@ -3249,6 +3319,9 @@ var VimCord = class {
       return;
     }
     if (event.key === "Escape") {
+      if (this.mode === "normal" && !this.commands.label) {
+        return;
+      }
       event.preventDefault();
       event.stopImmediatePropagation();
       if (this.commands.label) {
@@ -3260,7 +3333,8 @@ var VimCord = class {
       return;
     }
     const action = this.settings.actionForKey(event.key, this.mode);
-    if (!["historyBack", "historyForward"].includes(action)) {
+    const countDigit = !this.commands.prefix && /^[0-9]$/.test(event.key);
+    if (!countDigit && !["historyBack", "historyForward"].includes(action)) {
       this.history.cancelPending();
       this.history.restored = null;
     }
@@ -3345,10 +3419,12 @@ var VimCord = class {
           this.history.beforeJump();
         }
         const edge = action === "jumpTop" ? "top" : "bottom";
-        if (edge === "bottom" && this.jumpToLatest()) {
-          break;
-        }
-        if (isMessageMode(this.mode)) {
+        if (edge === "bottom") {
+          if (!this.jumpToLatest()) {
+            this.setMode("normal");
+            this.panes.jump(edge);
+          }
+        } else if (isMessageMode(this.mode)) {
           this.messages.jump(edge);
         } else {
           this.panes.jump(edge);

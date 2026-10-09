@@ -175,6 +175,22 @@ test('G uses native jump-to-present for the selected chat and keeps other panes 
     assert.equal(app.composer.textContent, 'Existing draft');
 });
 
+test('G falls back to the loaded bottom and clears Message and Range selection', (t) => {
+    const app = createApp(t);
+    app.window.BdApi.Webpack.getByKeys = () => ({});
+    for (const modeKey of ['v', 'V']) {
+        app.key(modeKey);
+        app.key('k');
+        app.chat.scrollTop = 200;
+        app.key('G');
+        assert.equal(app.plugin.mode, 'normal');
+        assert.equal(app.chat.scrollTop, app.chat.scrollHeight);
+        assert.equal(app.plugin.messages.selected, null);
+        assert.equal(app.document.querySelector('.vimcord-message-in-range'), null);
+    }
+    assert.equal(app.composer.textContent, 'Existing draft');
+});
+
 test('copy preserves line breaks and emoji labels without copying message metadata', async (t) => {
     const app = createApp(t);
     app.document.getElementById('message-content-5').innerHTML =
@@ -182,6 +198,36 @@ test('copy preserves line breaks and emoji labels without copying message metada
     app.keys('vy');
     await Promise.resolve();
     assert.deepEqual(app.copies, ['Hello\n:wave: friend']);
+});
+
+test('copy separates paragraphs and list items while preserving inline text', async (t) => {
+    const app = createApp(t);
+    const content = app.document.getElementById('message-content-5');
+    const markup =
+        '<p>First <strong>paragraph</strong>.</p><p>Second paragraph.</p>' +
+        '<ul><li>First <em>item</em><ul><li>Nested item</li></ul></li><li>Second item</li></ul>';
+    content.innerHTML = markup;
+    app.keys('vy');
+    await Promise.resolve();
+    assert.deepEqual(app.copies, [
+        'First paragraph.\n\nSecond paragraph.\n\nFirst item\nNested item\nSecond item',
+    ]);
+    assert.equal(content.innerHTML, markup);
+});
+
+test('range copy preserves block boundaries, explicit blank lines, and code whitespace', async (t) => {
+    const app = createApp(t);
+    app.plugin.settings.setPreference('rangeCopyAuthors', false);
+    app.document.getElementById('message-content-4').innerHTML =
+        '<div>First line<br><br><img alt=":wave:"> last line</div><div>Next line</div>';
+    app.document.getElementById('message-content-5').innerHTML =
+        '<h2>Heading</h2><blockquote>Quoted text</blockquote>' +
+        '<pre><code>  first\n\n    second\n</code></pre>';
+    app.keys('Vky');
+    await Promise.resolve();
+    assert.deepEqual(app.copies, [
+        'First line\n\n:wave: last line\nNext line\n\nHeading\nQuoted text\n  first\n\n    second\n',
+    ]);
 });
 
 test('entering Message mode selects a visible row within the scroller clipping boundary', (t) => {
@@ -241,7 +287,8 @@ test('message selection moves by count, copies only content, blocks edits, and c
     app.keys('gg');
     assert.equal(app.plugin.messages.rowId, 'chat-messages-20-1');
     app.key('G');
-    assert.equal(app.plugin.messages.rowId, 'chat-messages-20-5');
+    assert.equal(app.plugin.mode, 'normal');
+    assert.equal(app.chat.scrollTop, app.chat.scrollHeight);
     app.key('Escape');
     assert.equal(app.plugin.mode, 'normal');
     assert.equal(app.document.querySelector('.vimcord-message-selected'), null);
@@ -508,6 +555,31 @@ test('Escape reaches a native reaction picker opened by VimCord and closes it in
     assert.equal(app.composer.textContent, 'Existing draft');
 });
 
+test('Escape reaches native dialogs and menus after canceling an unfinished command', (t) => {
+    const app = createApp(t);
+    for (const role of ['dialog', 'menu']) {
+        const overlay = app.document.createElement('section');
+        overlay.setAttribute('role', role);
+        overlay.innerHTML = '<button>Close</button>';
+        app.document.body.append(overlay);
+        app.plugin.refresh();
+        overlay.querySelector('button').focus();
+        overlay.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !event.defaultPrevented) {
+                overlay.remove();
+            }
+        });
+        app.key('2');
+        assert.equal(app.key('Escape').defaultPrevented, true);
+        assert.equal(app.plugin.commands.label, '');
+        assert.equal(overlay.isConnected, true);
+        assert.equal(app.key('Escape').defaultPrevented, false);
+        assert.equal(overlay.isConnected, false);
+        assert.equal(app.plugin.mode, 'normal');
+    }
+    assert.equal(app.composer.textContent, 'Existing draft');
+});
+
 test('marks manager resolves names, contains input, rejects collisions, and supports remove and undo', (t) => {
     const app = createApp(t, { marks: { b: '/channels/@me/30', a: '/channels/10/20' } });
     app.window.BdApi.Webpack.getStore = (name) =>
@@ -598,6 +670,71 @@ test('sequence hints follow remaps, delay until a pause, and disappear on comple
     app.plugin.stop();
     assert.equal(app.document.querySelector('[data-vimcord="sequence-hints"]'), null);
 });
+
+test('scrolling cancels an unloaded same-channel restore and keeps recording the reading position', (t) => {
+    const app = createApp(t);
+    app.chat.scrollTop = 200;
+    app.plugin.history.update();
+    app.plugin.history.beforeJump();
+    app.chat.scrollTop = 900;
+    app.plugin.history.update();
+    const saved = structuredClone(app.plugin.history.entries[0]);
+    app.document.getElementById(saved.anchorId).remove();
+
+    app.key('H');
+    assert.ok(app.plugin.history.pending);
+    app.key('j');
+    assert.equal(app.plugin.history.pending, null);
+    assert.equal(app.chat.scrollTop, 980);
+    assert.equal(app.plugin.history.cursor, 1);
+    assert.equal(app.plugin.history.entries.length, 2);
+    assert.equal(app.plugin.history.entries[1].scrollTop, 980);
+    assert.deepEqual(structuredClone(app.plugin.history.entries[0]), saved);
+
+    app.chat.scrollTop = 1100;
+    app.plugin.refresh();
+    assert.equal(app.plugin.history.entries[1].scrollTop, 1100);
+});
+
+for (const direction of ['back', 'forward']) {
+    test(`counted history ${direction} continues from the pending stop with remapped keys`, (t) => {
+        const app = createApp(t, {
+            settings: { keybinds: { historyBack: 'b', historyForward: 'n' } },
+        });
+        const switchChannel = (channel) => {
+            app.window.history.replaceState(null, '', `/channels/10/${channel}`);
+            for (const row of app.chat.querySelectorAll('li')) {
+                row.id = `chat-messages-${channel}-${row.id.split('-').at(-1)}`;
+            }
+            app.plugin.onSwitch();
+            app.plugin.refresh();
+        };
+        for (const channel of [30, 40, 50]) {
+            switchChannel(channel);
+        }
+        if (direction === 'forward') {
+            app.keys('3b');
+            switchChannel(20);
+        }
+        const key = direction === 'back' ? 'b' : 'n';
+        const target = direction === 'back' ? '/channels/10/20/1' : '/channels/10/50/1';
+        const cursor = app.plugin.history.cursor;
+
+        app.key(key);
+        const pending = app.plugin.history.pending;
+        assert.ok(pending);
+        app.key('2');
+        assert.equal(app.plugin.history.pending, pending);
+        app.key(key);
+        assert.equal(app.navigations.at(-1), target);
+        assert.equal(app.plugin.history.cursor, cursor);
+
+        const scrollTop = app.chat.scrollTop;
+        app.keys('2j');
+        assert.equal(app.plugin.history.pending, null);
+        assert.equal(app.chat.scrollTop, scrollTop + 160);
+    });
+}
 
 test('reading history restores channel and selected message, ignores stale rows, and branches after going back', (t) => {
     const app = createApp(t);

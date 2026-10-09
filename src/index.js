@@ -527,6 +527,9 @@ export default class VimCord {
         }
 
         if (event.key === 'Escape') {
+            if (this.mode === 'normal' && !this.commands.label) {
+                return;
+            }
             event.preventDefault();
             event.stopImmediatePropagation();
             if (this.commands.label) {
@@ -538,7 +541,8 @@ export default class VimCord {
             return;
         }
         const action = this.settings.actionForKey(event.key, this.mode);
-        if (!['historyBack', 'historyForward'].includes(action)) {
+        const countDigit = !this.commands.prefix && /^[0-9]$/.test(event.key);
+        if (!countDigit && !['historyBack', 'historyForward'].includes(action)) {
             this.history.cancelPending();
             this.history.restored = null;
         }
@@ -632,10 +636,12 @@ export default class VimCord {
                     this.history.beforeJump();
                 }
                 const edge = action === 'jumpTop' ? 'top' : 'bottom';
-                if (edge === 'bottom' && this.jumpToLatest()) {
-                    break;
-                }
-                if (isMessageMode(this.mode)) {
+                if (edge === 'bottom') {
+                    if (!this.jumpToLatest()) {
+                        this.setMode('normal');
+                        this.panes.jump(edge);
+                    }
+                } else if (isMessageMode(this.mode)) {
                     this.messages.jump(edge);
                 } else {
                     this.panes.jump(edge);
